@@ -1,6 +1,6 @@
 broadcast_title: X-rated
-dir_to_watch: ~/Documents/X_rated
-log_home: ~/Documents/Logs
+dir_to_watch: C:/cz_salsa/X-rated
+log_home: C:/Users/nipper/Logs
 mon_start: 20:30:00
 mon_stop: 23:05:00
 
