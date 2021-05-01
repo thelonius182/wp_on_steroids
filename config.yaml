@@ -1,0 +1,10 @@
+broadcast_title: X-rated
+dir_to_watch: ~/Documents/X_rated
+log_home: ~/Documents/Logs
+mon_start: 20:30:00
+mon_stop: 23:05:00
+
+# test_file: none
+test_file: 20210425_21.txt
+
+polling_interval_in_secs: 2.0
