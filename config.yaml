@@ -1,10 +1,11 @@
 broadcast_title: X-rated
+broadcast_start_hour: 21
 dir_to_watch: C:/cz_salsa/X-rated
 log_home: C:/Users/nipper/Logs
-mon_start: 20:30:00
-mon_stop: 23:05:00
+mon_stop_h: 23
+mon_stop_m: 05
 
-# test_file: none
-test_file: 20210425_21.txt
+test_file: none
+# test_file: 20210425_21.txt
 
 polling_interval_in_secs: 2.0
