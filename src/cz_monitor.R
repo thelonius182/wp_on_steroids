@@ -29,6 +29,7 @@ lg_ini <- flog.appender(appender.file(path.wpos_log), "wpos")
 flog.info("= = = = = WP-monitor START = = = = =", name = "wpos")
 
 # init file to watch ----
+# wpos_today <- ymd_hms("2021-05-30 00:00:00", tz = "Europe/Amsterdam")
 wpos_today <- now(tzone = "Europe/Amsterdam")
 # change hour to start-of-broadcast
 hour(wpos_today) <- wpos_config$broadcast_start_hour

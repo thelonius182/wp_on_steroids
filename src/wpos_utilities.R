@@ -36,25 +36,16 @@ get_wp_conn <- function() {
 update_wp <- function() {
 
   # standard summary
-  sql_gidstekst <- "Experimenteel, avant-garde, industrial, ambient en electronics.\n<!--more-->\n&nbsp;\n&nbsp;\n"
-  
-  # tracks
-  tib_pl <- playlist %>% as_tibble()
-  names(tib_pl) <- "pl_line"
-  
-  for (cur_pl_line in tib_pl$pl_line) {
+  sql_gidstekst.1 <- "Experimenteel, avant-garde, industrial, ambient en electronics.\n<!--more-->\n&nbsp;\n&nbsp;\n"
+  sql_gidstekst.2 <- paste(playlist, collapse = "\n")
+  sql_gidstekst <- paste(sql_gidstekst.1, sql_gidstekst.2, sep = "\n") %>% str_replace_all("[']", "&#39;")
 
-    sql_gidstekst <- paste0(sql_gidstekst,
-                            dbEscapeStrings(wp_conn, enc2native(cur_pl_line)),
-                            "\n")
-  }
-  
   upd_stmt02 <-
-    sprintf("update wp_posts set post_content = '%s' where id = %i;",
+    sprintf("update wp_posts set post_content = convert(cast(convert('%s' using latin1) as binary) using utf8mb4) where id = %i;",
             sql_gidstekst,
             dsSql01$cz_id)
   
-  dbGetQuery(wp_conn, upd_stmt02)
+  dbExecute(wp_conn, upd_stmt02)
   
   flog.info("Gids bijgewerkt: %s", pl_name, name = "wpos")
 }
