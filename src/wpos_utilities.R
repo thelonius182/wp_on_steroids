@@ -12,28 +12,49 @@ get_wallclock <- function(pm_cum_tijd, pm_playlist) {
   wallclock <- wallclock_ts_rounded %>% as.character %>% str_sub(12, 16)
 }
 
-get_wp_conn <- function() {
-  db_type <- "prd"
-  db_host <- key_get(service = paste0("sql-wp", db_type, "_host"))
-  db_user <- key_get(service = paste0("sql-wp", db_type, "_user"))
-  db_password <- key_get(service = paste0("sql-wp", db_type, "_pwd"))
-  db_name <- key_get(service = paste0("sql-wp", db_type, "_db"))
-  db_port <- 3306
-  db_table <- "cz.wp_posts"
+get_wp_conn <- function(wp_env) {
   
-  result <- tryCatch( {
-    grh_conn <- dbConnect(drv = MySQL(), user = db_user, password = db_password,
-                          dbname = db_name, host = db_host, port = db_port)
+  # TEST
+  # wp_env <- "dev"
+  # TEST
+  
+  db_host <- key_get(service = paste0("sql-wp", wp_env, "_host"))
+  db_user <- key_get(service = paste0("sql-wp", wp_env, "_user"))
+  db_password <-
+    key_get(service = paste0("sql-wp", wp_env, "_pwd"))
+  db_name <- key_get(service = paste0("sql-wp", wp_env, "_db"))
+  db_port <- 3305
+  try_err_grh_conn <- FALSE
+  try_err_grh_conn_msg <- NULL
+    
+  result <- tryCatch({
+    grh_conn <-
+      dbConnect(
+        drv = MySQL(),
+        user = db_user,
+        password = db_password,
+        dbname = db_name,
+        host = db_host,
+        port = db_port
+      )
   },
-  error = function(cond) {
-    flog.error("Wordpress database onbereikbaar (dev: check PuTTY)", name = "wpos")
-    return("connection-error")
+  error = function(db_err) {
+    try_err_grh_conn <<- TRUE
+    try_err_grh_conn_msg <<- db_err
+  })
+  
+  if (try_err_grh_conn) {
+    flog.error(try_err_grh_conn_msg, name = "wpos")
+    # return something having a type unequal to "S4", e.g. "character"
+    result <- "wp-db no connection"
   }
-  )
+  
   return(result)
 }
 
 update_wp <- function() {
+  
+  n_upd_errs <- 0
 
   # standard summary
   sql_gidstekst.1 <- "Experimenteel, avant-garde, industrial, ambient en electronics.\n<!--more-->\n&nbsp;\n&nbsp;\n"
@@ -44,8 +65,25 @@ update_wp <- function() {
     sprintf("update wp_posts set post_content = convert(cast(convert('%s' using latin1) as binary) using utf8mb4) where id = %i;",
             sql_gidstekst,
             dsSql01$cz_id)
+
+  try_err_upd02 <- FALSE
+  try_err_upd02_msg <- NULL
   
-  dbExecute(wp_conn, upd_stmt02)
+  tryCatch({
+    dbExecute(wp_conn, upd_stmt02)
+  },
+  error = function(db_err) {
+    try_err_upd02 <<- TRUE
+    try_err_upd02_msg <<-db_err
+  })
   
-  flog.info("Gids bijgewerkt: %s", pl_name, name = "wpos")
+  if (try_err_upd02) {
+    flog.error(try_err_upd02_msg, name = "wpos")
+    n_upd_errs <- 1
+    
+  } else {
+    flog.info("Gids bijgewerkt: %s", pl_name, name = "wpos")
+  }
+  
+  return(n_upd_errs)
 }
