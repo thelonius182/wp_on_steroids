@@ -14,8 +14,9 @@ library(lubridate)
 library(magrittr)
 library(stringr)
 library(keyring)
-library(RMySQL)
 library(tibble)
+# library(RMariaDB)
+library(DBI)
 
 # init functions ----
 source("src/wpos_utilities.R", encoding = "UTF-8")
@@ -39,6 +40,7 @@ pl_name <- format_ISO8601(wpos_today, precision = "ymdh") %>%
   str_remove_all("-") %>%
   str_replace("T", "_") %>%
   paste0(".txt")
+
 path.playlist <- paste(wpos_config$dir_to_watch, pl_name, sep = "/")
 
 if (!file_exists(path = path.playlist)) {
@@ -59,67 +61,58 @@ hour(wpos_stop) <- wpos_config$mon_stop_h
 minute(wpos_stop) <- wpos_config$mon_stop_m
 second(wpos_stop) <- 0L
 
-# let the show begin
-while(TRUE) {
+# Connect to database ----
+flog.info("connecting to WordPress-DB on %s", wpos_config$wp_env, name = "wpos")
+wp_conn <- get_wp_conn(wpos_config$wp_env)
+
+sql_post_key <- str_remove(pl_name, "\\.txt")
+
+sel_stmt01 <-
+  sprintf("SELECT cz_id FROM salsa_plws_gidsweek where pgmStart = '%s';",
+          sql_post_key)
+
+dsSql01 <- dbGetQuery(wp_conn, sel_stmt01)
+
+# === TESTESTEST !!!
+# dsSql01$cz_id <- 432782 # Framework 2018-02-26 05:00:00
+# === TESTESTEST !!!
+
+# start monitoring ----
+flog.info("watching %s until %s, id = %s",
+          path.playlist,
+          wpos_stop,
+          dsSql01$cz_id,
+          name = "wpos")
+
+# let the show begin ----
+while (TRUE) {
   
-  # Connect to database ----
-  flog.info("connecting to WordPress-DB", name = "wpos")
-  wp_conn <- get_wp_conn(wpos_config$wp_env)
-  
-  # connection-type=S4 indicates a valid connection; other types indicate failure
-  if (typeof(wp_conn) != "S4") {
+  # + game over ----
+  if (now(tzone = "Europe/Amsterdam") > wpos_stop) {
+    flog.info("stopping ...", name = "wpos")
     break
   }
   
-  flog.info("OK ... connection established", name = "wpos")
+  # + get current content ----
+  playlist <- read_lines(file = path.playlist)
+  playlist.md5 <- digest(object = playlist)
   
-  sql_post_key <- str_remove(pl_name, "\\.txt")
+  # + snooze if no change ----
+  if (file_size(path = path.playlist) == 0 ||
+      playlist.md5 == playlist.md5_sav) {
+    # + . wait a few moments ----
+    Sys.sleep(time = POLL_INTERVAL)
+    next
+  }
   
-  sel_stmt01 <-
-    sprintf("SELECT cz_id FROM salsa_plws_gidsweek where pgmStart = '%s';",
-            sql_post_key)
+  # check db-connection and reconnect first, if needed
+  if (!grh_conn_sts_valid()) {
+    flog.info("lost connection to WordPress-DB on %s; retry...", wpos_config$wp_env, name = "wpos")
+    wp_conn <- get_wp_conn(wpos_config$wp_env)
+  }
   
-  dsSql01 <- dbGetQuery(wp_conn, sel_stmt01)
+  n_mon_upd_errs = update_wp()
   
-  # === TESTESTEST !!!
-  # dsSql01$cz_id <- 432782 # Framework 2018-02-26 05:00:00
-  # === TESTESTEST !!!
-  
-  # start monitoring ----
-  flog.info("watching %s until %s, id = %s",
-            path.playlist,
-            wpos_stop,
-            dsSql01$cz_id,
-            name = "wpos")
-  
-  while (TRUE) {
-    # + game over ----
-    if (now(tzone = "Europe/Amsterdam") > wpos_stop) {
-      flog.info("stopping ...", name = "wpos")
-      break
-    }
-    
-    # + get current content ----
-    playlist <- read_lines(file = path.playlist)
-    playlist.md5 <- digest(object = playlist)
-    
-    # + snooze if no change ----
-    if (file_size(path = path.playlist) == 0 ||
-        playlist.md5 == playlist.md5_sav) {
-      
-      # + . wait a few moments ----
-      Sys.sleep(time = POLL_INTERVAL)
-      
-      next
-    }
-    
-    # + update on change ----
-    playlist.md5_sav <- playlist.md5
-    
-    # on failure, keep trying
-    while (true) {
-      n_mon_upd_errs = update_wp()
-      
       # update succesful
       if (n_mon_upd_errs == 0) {
         break

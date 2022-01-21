@@ -12,44 +12,77 @@ get_wallclock <- function(pm_cum_tijd, pm_playlist) {
   wallclock <- wallclock_ts_rounded %>% as.character %>% str_sub(12, 16)
 }
 
-get_wp_conn <- function(wp_env) {
+grh_conn_sts_valid <- function() {
   
-  # TEST
-  # wp_env <- "dev"
-  # TEST
+  result <- TRUE
+  grh_conn_sts_err <- FALSE
+  grh_conn_sts_err_msg <- NULL
   
-  db_host <- key_get(service = paste0("sql-wp", wp_env, "_host"))
-  db_user <- key_get(service = paste0("sql-wp", wp_env, "_user"))
-  db_password <-
-    key_get(service = paste0("sql-wp", wp_env, "_pwd"))
-  db_name <- key_get(service = paste0("sql-wp", wp_env, "_db"))
-  db_port <- 3305
-  try_err_grh_conn <- FALSE
-  try_err_grh_conn_msg <- NULL
-    
-  result <- tryCatch({
-    grh_conn <-
-      dbConnect(
-        drv = MySQL(),
-        user = db_user,
-        password = db_password,
-        dbname = db_name,
-        host = db_host,
-        port = db_port
-      )
-  },
-  error = function(db_err) {
-    try_err_grh_conn <<- TRUE
-    try_err_grh_conn_msg <<- db_err
-  })
+  sql_result <- tryCatch(
+    dsSql01 <- dbGetQuery(grh_conn, "show status where Variable_name = 'Connections';"),
+    error = function(db_err) {
+      grh_conn_sts_err <<- TRUE
+      grh_conn_sts_err_msg <<- db_err
+    }
+  )
   
-  if (try_err_grh_conn) {
-    flog.error(try_err_grh_conn_msg, name = "wpos")
-    # return something having a type unequal to "S4", e.g. "character"
-    result <- "wp-db no connection"
+  if (grh_conn_sts_err) {
+    flog.error(grh_conn_sts_err_msg, name = "wpos")
+    result <- FALSE
   }
   
   return(result)
+}
+
+get_wp_conn <- function(wp_env) {
+  # TEST
+  wp_env <- "dev"
+  # TEST
+  
+  wp_db_name <- paste0("wp", wp_env, "_mariadb")
+  grh_conn <- NULL
+  
+  while (TRUE) {
+    # try to connect unless end of the show
+    if (now(tzone = "Europe/Amsterdam") > wpos_stop) {
+      flog.info("show is over: stop", name = "wpos")
+      break
+    }
+    
+    grh_conn_err <- FALSE
+    grh_conn_err_msg <- NULL
+    
+    grh_conn <- tryCatch(
+      dbConnect(odbc::odbc(), wp_db_name, timeout = 10),
+      error = function(db_err) {
+        grh_conn_err <<- TRUE
+        grh_conn_err_msg <<- db_err
+      }
+    )
+    
+    if (grh_conn_err) {
+      flog.error(
+        "couldn't connect to greenhost WP-database on %s (S4-check); retry... (msg=%s)",
+        wp_env,
+        grh_conn_err_msg,
+        name = "wpos"
+      )
+      next
+    }
+    
+    if (typeof(grh_conn) != "S4") {
+      flog.error("couldn't connect to greenhost WP-database on %s (S4-check); retry...",
+                 wp_env,
+                 name = "wpos")
+      next
+    }
+    
+    # connection established
+    flog.info("connected to greenhost WP-database on %s", wp_env, name = "wpos")
+    break
+  }
+
+  return(grh_conn)
 }
 
 update_wp <- function() {
@@ -66,19 +99,19 @@ update_wp <- function() {
             sql_gidstekst,
             dsSql01$cz_id)
 
-  try_err_upd02 <- FALSE
-  try_err_upd02_msg <- NULL
+  db_upd02_err <- FALSE
+  db_upd02_err_msg <- NULL
   
   tryCatch({
     dbExecute(wp_conn, upd_stmt02)
   },
   error = function(db_err) {
-    try_err_upd02 <<- TRUE
-    try_err_upd02_msg <<-db_err
+    db_upd02_err <<- TRUE
+    db_upd02_err_msg <<-db_err
   })
   
-  if (try_err_upd02) {
-    flog.error(try_err_upd02_msg, name = "wpos")
+  if (db_upd02_err) {
+    flog.error(db_upd02_err_msg, name = "wpos")
     n_upd_errs <- 1
     
   } else {
