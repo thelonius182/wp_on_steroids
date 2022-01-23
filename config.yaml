@@ -9,4 +9,8 @@ test_file: none
 # test_file: 20210425_21.txt
 
 polling_interval_in_secs: 2.0
-db_refresh_interval_in_secs: 120
+
+wp_env: prd
+
+# dev requires putty-session: cz_wp_dev_20181027
+# wp_env: dev
