@@ -10,7 +10,7 @@ test_file: none
 
 polling_interval_in_secs: 2.0
 
-# wp_env: prd
+wp_env: prd
 
-# dev requires putty running cz_wp_dev_20181027
-wp_env: dev
+# dev requires putty-session: cz_wp_dev_20181027
+# wp_env: dev
