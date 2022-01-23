@@ -99,7 +99,7 @@ dsSql01 <- dbGetQuery(wp_conn, sel_stmt01)
 flog.info("watching %s until %s, id = %s",
           path.playlist,
           format_ISO8601(wpos_stop, precision = "ymdhm"),
-          dsSql01$cz_id,
+          as.character(dsSql01$cz_id),
           name = "wpos")
 
 # let the show begin ----

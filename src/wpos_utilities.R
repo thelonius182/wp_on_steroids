@@ -81,7 +81,7 @@ update_wp <- function() {
   sql_gidstekst <- paste(sql_gidstekst.1, sql_gidstekst.2, sep = "\n") %>% str_replace_all("[']", "&#39;")
 
   upd_stmt02 <-
-    sprintf("update wp_posts set post_content = convert(cast('%s' as binary) using utf8mb4) where id = %i;",
+    sprintf("update wp_posts set post_content = convert(cast('%s' as binary) using utf8mb4) where id = %s;",
             sql_gidstekst,
             dsSql01$cz_id)
 
